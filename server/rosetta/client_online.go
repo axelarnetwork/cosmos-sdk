@@ -38,7 +38,7 @@ var _ crgtypes.Client = (*Client)(nil)
 
 const (
 	tmWebsocketPath    = "/websocket"
-	defaultNodeTimeout = 15 * time.Second
+	defaultNodeTimeout = time.Minute
 )
 
 // Client implements a single network client to interact with cosmos based chains
@@ -129,6 +129,14 @@ func (c *Client) Ready() error {
 	if err != nil {
 		return err
 	}
+
+	// to prevent timeout of reading genesis block
+	var height int64 = -1
+	_, err = c.BlockByHeight(ctx, &height)
+	if err != nil {
+		return err
+	}
+
 	_, err = c.bank.TotalSupply(ctx, &bank.QueryTotalSupplyRequest{})
 	if err != nil {
 		return err
@@ -402,6 +410,28 @@ func (c *Client) ConstructionMetadataFromOptions(ctx context.Context, options ma
 	err = constructionOptions.FromMetadata(options)
 	if err != nil {
 		return nil, err
+	}
+
+	// if default fees suggestion is enabled and gas limit or price is unset, use default
+	if c.config.EnableFeeSuggestion {
+		if constructionOptions.GasLimit <= 0 {
+			constructionOptions.GasLimit = uint64(c.config.GasToSuggest)
+		}
+		if constructionOptions.GasPrice == "" {
+			denom := c.config.DenomToSuggest
+			constructionOptions.GasPrice = c.config.SuggestPrices.AmountOf(denom).String() + denom
+		}
+	}
+
+	if constructionOptions.GasLimit > 0 && constructionOptions.GasPrice != "" {
+		gasPrice, err := sdk.ParseDecCoin(constructionOptions.GasPrice)
+		if err != nil {
+			return nil, err
+		}
+		// check gasPrice is in the list
+		if !c.config.SuggestPrices.AmountOf(gasPrice.Denom).IsPositive() {
+			return nil, crgerrs.ErrBadArgument
+		}
 	}
 
 	signersData := make([]*SignerData, len(constructionOptions.ExpectedSigners))

@@ -30,6 +30,7 @@ import (
 	crgserver "github.com/cosmos/cosmos-sdk/server/rosetta/lib/server"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -369,16 +370,25 @@ func startInProcess(ctx *Context, clientCtx client.Context, appCreator types.App
 			offlineMode = true
 		}
 
+		minGasPrices, err := sdktypes.ParseDecCoins(config.MinGasPrices)
+		if err != nil {
+			ctx.Logger.Error("failed to parse minimum-gas-prices: ", err)
+			return err
+		}
+
 		conf := &rosetta.Config{
-			Blockchain:        config.Rosetta.Blockchain,
-			Network:           config.Rosetta.Network,
-			TendermintRPC:     ctx.Config.RPC.ListenAddress,
-			GRPCEndpoint:      config.GRPC.Address,
-			Addr:              config.Rosetta.Address,
-			Retries:           config.Rosetta.Retries,
-			Offline:           offlineMode,
-			Codec:             clientCtx.Codec.(*codec.ProtoCodec),
-			InterfaceRegistry: clientCtx.InterfaceRegistry,
+			Blockchain:          config.Rosetta.Blockchain,
+			Network:             config.Rosetta.Network,
+			TendermintRPC:       ctx.Config.RPC.ListenAddress,
+			GRPCEndpoint:        config.GRPC.Address,
+			Addr:                config.Rosetta.Address,
+			Retries:             config.Rosetta.Retries,
+			Offline:             offlineMode,
+			GasToSuggest:        config.Rosetta.GasToSuggest,
+			EnableFeeSuggestion: config.Rosetta.EnableFeeSuggestion,
+			SuggestPrices:       minGasPrices.Sort(),
+			Codec:               clientCtx.Codec.(*codec.ProtoCodec),
+			InterfaceRegistry:   clientCtx.InterfaceRegistry,
 		}
 
 		rosettaSrv, err = rosetta.ServerFromConfig(conf)
