@@ -102,3 +102,12 @@ func (c ConstructionMetadata) ToMetadata() (map[string]interface{}, error) {
 func (c *ConstructionMetadata) FromMetadata(meta map[string]interface{}) error {
 	return unmarshalMetadata(meta, c)
 }
+
+// TxMetadata contains transaction memo
+type TxMetadata struct {
+	Memo string `json:"memo"`
+}
+
+func (c TxMetadata) ToMetadata() (map[string]interface{}, error) {
+	return marshalMetadata(c)
+}
