@@ -334,6 +334,20 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 func (c converter) BalanceOps(status string, events []abci.Event) []*rosettatypes.Operation {
 	var ops []*rosettatypes.Operation
 
+	// find the fee collection event, which is event type tx with attributes fee and fee payer
+	feeEvent := filter(
+		events,
+		func(event abci.Event) bool {
+			return event.Type == sdk.EventTypeTx &&
+				string(event.Attributes[0].Key) == sdk.AttributeKeyFee &&
+				string(event.Attributes[1].Key) == sdk.AttributeKeyFeePayer
+		},
+	)
+
+	if len(feeEvent) == 1 {
+		events = replaceWithFeeOp(feeEvent[0], events)
+	}
+
 	for _, e := range events {
 		balanceOps, ok := sdkEventToBalanceOperations(status, e)
 		if !ok {
@@ -391,6 +405,19 @@ func sdkEventToBalanceOperations(status string, event abci.Event) (operations []
 
 		coinChange = coins
 		accountIdentifier = BurnerAddressIdentifier
+	case FeeOperation:
+		acc := sdk.MustAccAddressFromBech32((string)(event.Attributes[0].Value))
+		coins, err := sdk.ParseCoinsNormalized((string)(event.Attributes[1].Value))
+		if err != nil {
+			panic(err)
+		}
+
+		isSub = true
+		if acc.Equals(FeeCollector) {
+			isSub = false
+		}
+		coinChange = coins
+		accountIdentifier = acc.String()
 	}
 
 	operations = make([]*rosettatypes.Operation, len(coinChange))
@@ -420,6 +447,42 @@ func sdkEventToBalanceOperations(status string, event abci.Event) (operations []
 		operations[i] = op
 	}
 	return operations, true
+}
+
+// replaceWithFeeOp replaces coin_sent and coin_received event related to fee collection with fee event
+func replaceWithFeeOp(feeEvent abci.Event, events []abci.Event) []abci.Event {
+	fees, err := sdk.ParseCoinsNormalized((string)(feeEvent.Attributes[0].Value))
+	if err != nil {
+		panic(err)
+	}
+
+	payer := sdk.MustAccAddressFromBech32((string)(feeEvent.Attributes[1].Value))
+
+	if len(fees) == 0 {
+		return events
+	}
+
+	sentFeeFilter := and(
+		func(e abci.Event) bool { return e.Type == banktypes.EventTypeCoinSpent },
+		func(e abci.Event) bool {
+			return payer.Equals(sdk.MustAccAddressFromBech32((string)(e.Attributes[0].Value)))
+		},
+	)
+
+	receivedFeeFiter := and(
+		func(e abci.Event) bool { return e.Type == banktypes.EventTypeCoinReceived },
+		func(e abci.Event) bool {
+			return FeeCollector.Equals(sdk.MustAccAddressFromBech32((string)(e.Attributes[0].Value)))
+		},
+	)
+
+	sentFeeIdx := filterIndex(events, sentFeeFilter)[0]
+	receivedFeeIdx := filterIndex(events, receivedFeeFiter)[0]
+
+	events[sentFeeIdx].Type = FeeOperation
+	events[receivedFeeIdx].Type = FeeOperation
+
+	return events
 }
 
 // Amounts converts []sdk.Coin to rosetta amounts
