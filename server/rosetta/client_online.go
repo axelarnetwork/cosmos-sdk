@@ -84,6 +84,7 @@ func NewClient(cfg *Config) (*Client, error) {
 		bank.EventTypeCoinSpent,
 		bank.EventTypeCoinReceived,
 		bank.EventTypeCoinBurn,
+		FeeOperation,
 	)
 
 	return &Client{
