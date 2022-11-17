@@ -2,6 +2,10 @@ package rosetta
 
 import (
 	"crypto/sha256"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	auth "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/tendermint/tendermint/crypto"
 )
 
 // statuses
@@ -48,6 +52,12 @@ const (
 const (
 	Log = "log"
 )
+
+const (
+	FeeOperation = "fee"
+)
+
+var FeeCollector = sdk.AccAddress(crypto.AddressHash([]byte(auth.FeeCollectorName)))
 
 // ConstructionPreprocessMetadata is used to represent
 // the metadata rosetta can provide during preprocess options
