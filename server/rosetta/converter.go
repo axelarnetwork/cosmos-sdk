@@ -103,6 +103,8 @@ type ToSDKConverter interface {
 }
 
 type converter struct {
+	denomUnits map[string]banktypes.DenomUnit
+
 	newTxBuilder    func() sdkclient.TxBuilder
 	txBuilderFromTx func(tx sdk.Tx) (sdkclient.TxBuilder, error)
 	txDecode        sdk.TxDecoder
@@ -112,8 +114,14 @@ type converter struct {
 	cdc             *codec.ProtoCodec
 }
 
-func NewConverter(cdc *codec.ProtoCodec, ir codectypes.InterfaceRegistry, cfg sdkclient.TxConfig) Converter {
+func NewConverter(cdc *codec.ProtoCodec, ir codectypes.InterfaceRegistry, cfg sdkclient.TxConfig, symbolDecimals []SymbolDecimal) Converter {
+	denomUnits := make(map[string]banktypes.DenomUnit)
+	for _, s := range symbolDecimals {
+		denomUnits[s.Base] = banktypes.DenomUnit{Denom: s.Symbol, Exponent: s.Decimal}
+	}
+
 	return converter{
+		denomUnits:      denomUnits,
 		newTxBuilder:    cfg.NewTxBuilder,
 		txBuilderFromTx: cfg.WrapTxBuilder,
 		txDecode:        cfg.TxDecoder(),
@@ -349,7 +357,7 @@ func (c converter) BalanceOps(status string, events []abci.Event) []*rosettatype
 	}
 
 	for _, e := range events {
-		balanceOps, ok := sdkEventToBalanceOperations(status, e)
+		balanceOps, ok := c.sdkEventToBalanceOperations(status, e)
 		if !ok {
 			continue
 		}
@@ -363,7 +371,7 @@ func (c converter) BalanceOps(status string, events []abci.Event) []*rosettatype
 // it will panic if the event is malformed because it might mean the sdk spec
 // has changed and rosetta needs to reflect those changes too.
 // The balance operations are multiple, one for each denom.
-func sdkEventToBalanceOperations(status string, event abci.Event) (operations []*rosettatypes.Operation, isBalanceEvent bool) {
+func (c converter) sdkEventToBalanceOperations(status string, event abci.Event) (operations []*rosettatypes.Operation, isBalanceEvent bool) {
 	var (
 		accountIdentifier string
 		coinChange        sdk.Coins
@@ -436,11 +444,8 @@ func sdkEventToBalanceOperations(status string, event abci.Event) (operations []
 			Status:  &status,
 			Account: &rosettatypes.AccountIdentifier{Address: accountIdentifier},
 			Amount: &rosettatypes.Amount{
-				Value: value,
-				Currency: &rosettatypes.Currency{
-					Symbol:   coin.Denom,
-					Decimals: 0,
-				},
+				Value:    value,
+				Currency: c.toCurrency(coin.GetDenom()),
 			},
 		}
 
@@ -496,24 +501,36 @@ func (c converter) Amounts(ownedCoins []sdk.Coin, availableCoins sdk.Coins) []*r
 
 	for i, coin := range availableCoins {
 		value, owned := ownedCoinsMap[coin.Denom]
+
 		if !owned {
 			amounts[i] = &rosettatypes.Amount{
-				Value: sdk.NewInt(0).String(),
-				Currency: &rosettatypes.Currency{
-					Symbol: coin.Denom,
-				},
+				Value:    sdk.NewInt(0).String(),
+				Currency: c.toCurrency(coin.GetDenom()),
 			}
 			continue
 		}
 		amounts[i] = &rosettatypes.Amount{
-			Value: value.String(),
-			Currency: &rosettatypes.Currency{
-				Symbol: coin.Denom,
-			},
+			Value:    value.String(),
+			Currency: c.toCurrency(coin.GetDenom()),
 		}
 	}
 
 	return amounts
+}
+
+func (c converter) toCurrency(denom string) *rosettatypes.Currency {
+	symbol := denom
+	decimals := int32(0)
+
+	if denomUnit, ok := c.denomUnits[denom]; ok {
+		symbol = denomUnit.GetDenom()
+		decimals = int32(denomUnit.GetExponent())
+	}
+
+	return &rosettatypes.Currency{
+		Symbol:   symbol,
+		Decimals: decimals,
+	}
 }
 
 // AddOperationIndexes adds the indexes to operations adhering to specific rules:

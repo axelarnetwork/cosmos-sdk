@@ -55,6 +55,13 @@ const (
 	FlagPricesToSuggest     = "prices-to-suggest"
 )
 
+// SymbolDecimal contains symbol decimal info
+type SymbolDecimal struct {
+	Base    string `mapstructure:"base"`
+	Symbol  string `mapstructure:"symbol"`
+	Decimal uint32 `mapstructure:"decimal"`
+}
+
 // Config defines the configuration of the rosetta server
 type Config struct {
 	// Blockchain defines the blockchain name
@@ -85,6 +92,8 @@ type Config struct {
 	DenomToSuggest string
 	// GasPrices defines the gas prices for fee suggestion
 	GasPrices sdk.DecCoins
+	// SymbolDecimals defines the decimal when display symbol
+	SymbolDecimals []SymbolDecimal
 	// Codec overrides the default data and construction api client codecs
 	Codec *codec.ProtoCodec
 	// InterfaceRegistry overrides the default data and construction api interface registry

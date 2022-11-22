@@ -94,7 +94,7 @@ func NewClient(cfg *Config) (*Client, error) {
 		bank:                nil,
 		tmRPC:               nil,
 		version:             fmt.Sprintf("%s/%s", info.AppName, v),
-		converter:           NewConverter(cfg.Codec, cfg.InterfaceRegistry, txConfig),
+		converter:           NewConverter(cfg.Codec, cfg.InterfaceRegistry, txConfig, cfg.SymbolDecimals),
 	}, nil
 }
 
