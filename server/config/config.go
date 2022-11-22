@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	clientflags "github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/server/rosetta"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -139,6 +140,9 @@ type RosettaConfig struct {
 
 	// DenomToSuggest defines the defult denom for fee suggestion
 	DenomToSuggest string `mapstructure:"denom-to-suggest"`
+
+	// SymbolDecimals defines the decimal when display in symbol
+	SymbolDecimals []rosetta.SymbolDecimal `mapstructure:"symbol-decimals"`
 }
 
 // GRPCConfig defines configuration for the gRPC server.
@@ -287,6 +291,7 @@ func DefaultConfig() *Config {
 			EnableFeeSuggestion: false,
 			GasToSuggest:        clientflags.DefaultGasLimit,
 			DenomToSuggest:      "uatom",
+			SymbolDecimals:      []rosetta.SymbolDecimal{{Base: "uatom", Decimal: 6, Symbol: "atom"}},
 		},
 		GRPCWeb: GRPCWebConfig{
 			Enable:  true,
