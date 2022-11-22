@@ -387,6 +387,7 @@ func startInProcess(ctx *Context, clientCtx client.Context, appCreator types.App
 			GasToSuggest:        config.Rosetta.GasToSuggest,
 			EnableFeeSuggestion: config.Rosetta.EnableFeeSuggestion,
 			GasPrices:           minGasPrices.Sort(),
+			SymbolDecimals:      config.Rosetta.SymbolDecimals,
 			Codec:               clientCtx.Codec.(*codec.ProtoCodec),
 			InterfaceRegistry:   clientCtx.InterfaceRegistry,
 		}
