@@ -347,6 +347,7 @@ func (c converter) BalanceOps(status string, events []abci.Event) []*rosettatype
 		events,
 		func(event abci.Event) bool {
 			return event.Type == sdk.EventTypeTx &&
+				len(event.Attributes) == 2 &&
 				string(event.Attributes[0].Key) == sdk.AttributeKeyFee &&
 				string(event.Attributes[1].Key) == sdk.AttributeKeyFeePayer
 		},
