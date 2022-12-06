@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	tmcoretypes "github.com/tendermint/tendermint/rpc/core/types"
 
+	util "github.com/cosmos/cosmos-sdk/server/rosetta/lib"
 	crgtypes "github.com/cosmos/cosmos-sdk/server/rosetta/lib/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -343,7 +344,7 @@ func (c converter) BalanceOps(status string, events []abci.Event) []*rosettatype
 	var ops []*rosettatypes.Operation
 
 	// find the fee collection event, which is event type tx with attributes fee and fee payer
-	feeEvent := filter(
+	feeEvent := util.Filter(
 		events,
 		func(event abci.Event) bool {
 			return event.Type == sdk.EventTypeTx &&
@@ -468,22 +469,22 @@ func replaceWithFeeOp(feeEvent abci.Event, events []abci.Event) []abci.Event {
 		return events
 	}
 
-	sentFeeFilter := and(
+	sentFeeFilter := util.And(
 		func(e abci.Event) bool { return e.Type == banktypes.EventTypeCoinSpent },
 		func(e abci.Event) bool {
 			return payer.Equals(sdk.MustAccAddressFromBech32((string)(e.Attributes[0].Value)))
 		},
 	)
 
-	receivedFeeFiter := and(
+	receivedFeeFiter := util.And(
 		func(e abci.Event) bool { return e.Type == banktypes.EventTypeCoinReceived },
 		func(e abci.Event) bool {
 			return FeeCollector.Equals(sdk.MustAccAddressFromBech32((string)(e.Attributes[0].Value)))
 		},
 	)
 
-	sentFeeIdx := filterIndex(events, sentFeeFilter)[0]
-	receivedFeeIdx := filterIndex(events, receivedFeeFiter)[0]
+	sentFeeIdx := util.FilterIndex(events, sentFeeFilter)[0]
+	receivedFeeIdx := util.FilterIndex(events, receivedFeeFiter)[0]
 
 	events[sentFeeIdx].Type = FeeOperation
 	events[receivedFeeIdx].Type = FeeOperation
