@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/coinbase/rosetta-sdk-go/types"
+
+	util "github.com/cosmos/cosmos-sdk/server/rosetta/lib"
 	"github.com/cosmos/cosmos-sdk/server/rosetta/lib/errors"
 	crgtypes "github.com/cosmos/cosmos-sdk/server/rosetta/lib/types"
 )
@@ -40,6 +42,18 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 	accountCoins, err := on.client.Balances(ctx, request.AccountIdentifier.Address, &height)
 	if err != nil {
 		return nil, errors.ToRosetta(err)
+	}
+
+	if len(request.Currencies) > 0 {
+		accountCoins = util.Filter(accountCoins, func(amt *types.Amount) bool {
+			for _, currency := range request.Currencies {
+				if amt.Currency.Symbol == currency.Symbol {
+					return true
+				}
+			}
+
+			return false
+		})
 	}
 
 	accountInfo, err := on.client.AccountInfo(ctx, request.AccountIdentifier.Address, &height)
