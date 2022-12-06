@@ -55,7 +55,8 @@ const (
 )
 
 const (
-	FeeOperation = "fee"
+	FeePayerOperation    = "fee_payer"
+	FeeReceiverOperation = "fee_receiver"
 )
 
 var FeeCollector = sdk.AccAddress(crypto.AddressHash([]byte(auth.FeeCollectorName)))

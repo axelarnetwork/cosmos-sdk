@@ -415,7 +415,7 @@ func (c converter) sdkEventToBalanceOperations(status string, event abci.Event) 
 
 		coinChange = coins
 		accountIdentifier = BurnerAddressIdentifier
-	case FeeOperation:
+	case FeePayerOperation, FeeReceiverOperation:
 		acc := sdk.MustAccAddressFromBech32((string)(event.Attributes[0].Value))
 		coins, err := sdk.ParseCoinsNormalized((string)(event.Attributes[1].Value))
 		if err != nil {
@@ -486,8 +486,8 @@ func replaceWithFeeOp(feeEvent abci.Event, events []abci.Event) []abci.Event {
 	sentFeeIdx := util.FilterIndex(events, sentFeeFilter)[0]
 	receivedFeeIdx := util.FilterIndex(events, receivedFeeFiter)[0]
 
-	events[sentFeeIdx].Type = FeeOperation
-	events[receivedFeeIdx].Type = FeeOperation
+	events[sentFeeIdx].Type = FeePayerOperation
+	events[receivedFeeIdx].Type = FeeReceiverOperation
 
 	return events
 }
