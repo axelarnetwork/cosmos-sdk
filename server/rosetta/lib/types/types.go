@@ -33,6 +33,7 @@ type Client interface {
 
 	// Data API
 
+	AccountInfo(ctx context.Context, addr string, height *int64) (*SignerData, error)
 	// Balances fetches the balance of the given address
 	// if height is not nil, then the balance will be displayed
 	// at the provided height, otherwise last block balance will be returned
@@ -161,4 +162,11 @@ type ConstructionOfflineAPI interface {
 		context.Context,
 		*types.ConstructionPreprocessRequest,
 	) (*types.ConstructionPreprocessResponse, *types.Error)
+}
+
+// SignerData contains information on the signers when the request
+// is being created, used to populate the account information
+type SignerData struct {
+	AccountNumber uint64 `json:"account_number"`
+	Sequence      uint64 `json:"sequence"`
 }

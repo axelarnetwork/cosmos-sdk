@@ -42,10 +42,17 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 		return nil, errors.ToRosetta(err)
 	}
 
+	accountInfo, err := on.client.AccountInfo(ctx, request.AccountIdentifier.Address, &height)
+	if err != nil {
+		return nil, errors.ToRosetta(err)
+	}
+
 	return &types.AccountBalanceResponse{
 		BlockIdentifier: block.Block,
 		Balances:        accountCoins,
-		Metadata:        nil,
+		Metadata: map[string]interface{}{
+			"sequence_number": accountInfo.Sequence,
+		},
 	}, nil
 }
 
