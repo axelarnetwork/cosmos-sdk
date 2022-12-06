@@ -145,7 +145,7 @@ func (c *Client) Ready() error {
 	return nil
 }
 
-func (c *Client) accountInfo(ctx context.Context, addr string, height *int64) (*SignerData, error) {
+func (c *Client) AccountInfo(ctx context.Context, addr string, height *int64) (*crgtypes.SignerData, error) {
 	if height != nil {
 		strHeight := strconv.FormatInt(*height, 10)
 		ctx = metadata.AppendToOutgoingContext(ctx, grpctypes.GRPCBlockHeightHeader, strHeight)
@@ -434,10 +434,10 @@ func (c *Client) ConstructionMetadataFromOptions(ctx context.Context, options ma
 		}
 	}
 
-	signersData := make([]*SignerData, len(constructionOptions.ExpectedSigners))
+	signersData := make([]*crgtypes.SignerData, len(constructionOptions.ExpectedSigners))
 
 	for i, signer := range constructionOptions.ExpectedSigners {
-		accountInfo, err := c.accountInfo(ctx, signer, nil)
+		accountInfo, err := c.AccountInfo(ctx, signer, nil)
 		if err != nil {
 			return nil, err
 		}
