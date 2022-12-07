@@ -283,33 +283,6 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 	if err != nil {
 		return nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
 	}
-	// get initial status, as per sdk design, if one msg fails
-	// the whole TX will be considered failing, so we can't have
-	// 1 msg being success and 1 msg being reverted
-	status := StatusTxSuccess
-	switch txResult {
-	// if nil, we're probably checking an unconfirmed tx
-	// or trying to build a new transaction, so status
-	// is not put inside
-	case nil:
-		status = ""
-	// set the status
-	default:
-		if txResult.Code != abci.CodeTypeOK {
-			status = StatusTxReverted
-		}
-	}
-	// get operations from msgs
-	msgs := tx.GetMsgs()
-	var rawTxOps []*rosettatypes.Operation
-
-	for _, msg := range msgs {
-		ops, err := c.Ops(status, msg)
-		if err != nil {
-			return nil, err
-		}
-		rawTxOps = append(rawTxOps, ops...)
-	}
 
 	// now get balance events from response deliver tx
 	var balanceOps []*rosettatypes.Operation
@@ -317,9 +290,6 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 	if txResult != nil {
 		balanceOps = c.BalanceOps(StatusTxSuccess, txResult.Events) // force set to success because no events for failed tx
 	}
-
-	// now normalize indexes
-	totalOps := AddOperationIndexes(rawTxOps, balanceOps)
 
 	// get memo
 	memoTx, ok := tx.(sdk.TxWithMemo)
@@ -339,7 +309,7 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 
 	return &rosettatypes.Transaction{
 		TransactionIdentifier: &rosettatypes.TransactionIdentifier{Hash: fmt.Sprintf("%X", rawTx.Hash())},
-		Operations:            totalOps,
+		Operations:            AddOperationIndexes(balanceOps),
 		Metadata:              metadata,
 	}, nil
 }
@@ -539,23 +509,11 @@ func (c converter) toCurrency(denom string) *rosettatypes.Currency {
 	}
 }
 
-// AddOperationIndexes adds the indexes to operations adhering to specific rules:
-// operations related to messages will be always before than the balance ones
-func AddOperationIndexes(msgOps []*rosettatypes.Operation, balanceOps []*rosettatypes.Operation) (finalOps []*rosettatypes.Operation) {
-	lenMsgOps := len(msgOps)
-	lenBalanceOps := len(balanceOps)
-	finalOps = make([]*rosettatypes.Operation, 0, lenMsgOps+lenBalanceOps)
+// AddOperationIndexes adds the indexes to operations
+func AddOperationIndexes(balanceOps []*rosettatypes.Operation) (finalOps []*rosettatypes.Operation) {
+	finalOps = make([]*rosettatypes.Operation, 0, len(balanceOps))
 
 	var currentIndex int64
-	// add indexes to msg ops
-	for _, op := range msgOps {
-		op.OperationIdentifier = &rosettatypes.OperationIdentifier{
-			Index: currentIndex,
-		}
-
-		finalOps = append(finalOps, op)
-		currentIndex++
-	}
 
 	// add indexes to balance ops
 	for _, op := range balanceOps {
