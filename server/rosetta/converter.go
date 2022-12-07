@@ -157,6 +157,10 @@ func (c converter) UnsignedTx(ops []*rosettatypes.Operation) (tx authsigning.Tx,
 	for i := 0; i < len(ops); i++ {
 		op := ops[i]
 
+		if op.Type == TransferOperation {
+			op.Type = MsgSendOperation
+		}
+
 		protoMessage, err := c.ir.Resolve(op.Type)
 		if err != nil {
 			return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, "operation not found: "+op.Type)
