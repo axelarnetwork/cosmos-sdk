@@ -57,8 +57,11 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 	}
 
 	accountInfo, err := on.client.AccountInfo(ctx, request.AccountIdentifier.Address, &height)
+	// can query a non initialized account, return the default sequence
 	if err != nil {
-		return nil, errors.ToRosetta(err)
+		accountInfo = &crgtypes.SignerData{
+			Sequence: 0,
+		}
 	}
 
 	return &types.AccountBalanceResponse{
