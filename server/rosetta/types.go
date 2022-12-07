@@ -57,6 +57,9 @@ const (
 const (
 	FeePayerOperation    = "fee_payer"
 	FeeReceiverOperation = "fee_receiver"
+	// TransferOperation is MsgSend op
+	TransferOperation = "Transfer"
+	MsgSendOperation  = "/cosmos.bank.v1beta1.MsgSend"
 )
 
 var FeeCollector = sdk.AccAddress(crypto.AddressHash([]byte(auth.FeeCollectorName)))
