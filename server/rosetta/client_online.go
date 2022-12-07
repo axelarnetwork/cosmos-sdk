@@ -67,27 +67,14 @@ func NewClient(cfg *Config) (*Client, error) {
 
 	txConfig := authtx.NewTxConfig(cfg.Codec, authtx.DefaultSignModes)
 
-	var supportedOperations []string
-	for _, ii := range cfg.InterfaceRegistry.ListImplementations(sdk.MsgInterfaceProtoName) {
-		resolvedMsg, err := cfg.InterfaceRegistry.Resolve(ii)
-		if err != nil {
-			continue
-		}
-
-		if _, ok := resolvedMsg.(sdk.Msg); ok {
-			supportedOperations = append(supportedOperations, ii)
-		}
-	}
-
-	supportedOperations = append(
-		supportedOperations,
+	supportedOperations := []string{
 		bank.EventTypeCoinSpent,
 		bank.EventTypeCoinReceived,
 		bank.EventTypeCoinBurn,
 		FeePayerOperation,
 		FeeReceiverOperation,
 		TransferOperation,
-	)
+	}
 
 	return &Client{
 		supportedOperations: supportedOperations,
