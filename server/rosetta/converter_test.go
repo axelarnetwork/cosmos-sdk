@@ -18,6 +18,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/server/rosetta"
 	crgerrs "github.com/cosmos/cosmos-sdk/server/rosetta/lib/errors"
+	crgtypes "github.com/cosmos/cosmos-sdk/server/rosetta/lib/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
@@ -45,7 +46,7 @@ func (s *ConverterTestSuite) SetupTest() {
 	// instantiate converter
 	cdc, ir := rosetta.MakeCodec()
 	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
-	s.c = rosetta.NewConverter(cdc, ir, txConfig)
+	s.c = rosetta.NewConverter(cdc, ir, txConfig, nil)
 	// add utils
 	s.ir = ir
 	s.cdc = cdc
@@ -236,7 +237,7 @@ func (s *ConverterTestSuite) TestSigningComponents() {
 	s.Run("length pub keys does not match signers", func() {
 		_, _, err := s.c.ToRosetta().SigningComponents(
 			s.unsignedTx,
-			&rosetta.ConstructionMetadata{GasPrice: "10stake", SignersData: []*rosetta.SignerData{
+			&rosetta.ConstructionMetadata{GasPrice: "10stake", SignersData: []*crgtypes.SignerData{
 				{
 					AccountNumber: 0,
 					Sequence:      0,
@@ -252,7 +253,7 @@ func (s *ConverterTestSuite) TestSigningComponents() {
 
 		_, _, err = s.c.ToRosetta().SigningComponents(
 			s.unsignedTx,
-			&rosetta.ConstructionMetadata{GasPrice: "10stake", SignersData: []*rosetta.SignerData{
+			&rosetta.ConstructionMetadata{GasPrice: "10stake", SignersData: []*crgtypes.SignerData{
 				{
 					AccountNumber: 0,
 					Sequence:      0,
@@ -273,7 +274,7 @@ func (s *ConverterTestSuite) TestSigningComponents() {
 
 		_, _, err = s.c.ToRosetta().SigningComponents(
 			s.unsignedTx,
-			&rosetta.ConstructionMetadata{GasPrice: "10stake", SignersData: []*rosetta.SignerData{
+			&rosetta.ConstructionMetadata{GasPrice: "10stake", SignersData: []*crgtypes.SignerData{
 				{
 					AccountNumber: 0,
 					Sequence:      0,
@@ -321,14 +322,6 @@ func (s *ConverterTestSuite) TestBalanceOps() {
 			}
 			_ = s.c.ToRosetta().BalanceOps("", []abci.Event{specBrokenSub})
 		})
-
-		s.Require().Panics(func() {
-			specBrokenSub := abci.Event{
-				Type: bank.EventTypeCoinBurn,
-			}
-			_ = s.c.ToRosetta().BalanceOps("", []abci.Event{specBrokenSub})
-		})
-
 		s.Require().Panics(func() {
 			specBrokenSub := abci.Event{
 				Type: bank.EventTypeCoinReceived,

@@ -416,17 +416,6 @@ func (c converter) sdkEventToBalanceOperations(status string, event abci.Event) 
 		isSub = false
 		coinChange = coins
 		accountIdentifier = receiver.String()
-
-	// rosetta does not have the concept of burning coins, so we need to mock
-	// the burn as a send to an address that cannot be resolved to anything
-	case banktypes.EventTypeCoinBurn:
-		coins, err := sdk.ParseCoinsNormalized((string)(event.Attributes[1].Value))
-		if err != nil {
-			panic(err)
-		}
-
-		coinChange = coins
-		accountIdentifier = BurnerAddressIdentifier
 	case FeePayerOperation, FeeReceiverOperation:
 		acc := sdk.MustAccAddressFromBech32((string)(event.Attributes[0].Value))
 		coins, err := sdk.ParseCoinsNormalized((string)(event.Attributes[1].Value))
