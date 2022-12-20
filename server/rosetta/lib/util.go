@@ -35,3 +35,14 @@ func And[T any](predicate ...func(T) bool) func(T) bool {
 		return true
 	}
 }
+
+func Map[T, S any](source []T, f func(T) S) []S {
+	out := make([]S, len(source))
+
+	for i := range source {
+		out[i] = f(source[i])
+
+	}
+
+	return out
+}
