@@ -70,7 +70,6 @@ func NewClient(cfg *Config) (*Client, error) {
 	supportedOperations := []string{
 		bank.EventTypeCoinSpent,
 		bank.EventTypeCoinReceived,
-		bank.EventTypeCoinBurn,
 		FeePayerOperation,
 		FeeReceiverOperation,
 		TransferOperation,
