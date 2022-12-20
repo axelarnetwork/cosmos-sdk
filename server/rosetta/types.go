@@ -28,14 +28,6 @@ const (
 	BeginBlockHashStart = 0x1
 )
 
-const (
-	// BurnerAddressIdentifier mocks the account identifier of a burner address
-	// all coins burned in the sdk will be sent to this identifier, which per sdk.AccAddress
-	// design we will never be able to query (as of now).
-	// Rosetta does not understand supply contraction.
-	BurnerAddressIdentifier = "burner"
-)
-
 // TransactionType is used to distinguish if a rosetta provided hash
 // represents endblock, beginblock or deliver tx
 type TransactionType int
