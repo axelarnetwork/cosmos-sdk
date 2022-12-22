@@ -21,7 +21,8 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 
 	switch {
 	case request.BlockIdentifier == nil:
-		block, err = on.client.BlockByHeight(ctx, nil)
+		lastBlockHeight, err := on.client.LastBlockHeight(ctx)
+		block, err = on.client.BlockByHeight(ctx, &lastBlockHeight)
 		if err != nil {
 			return nil, errors.ToRosetta(err)
 		}
@@ -30,7 +31,6 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 		if err != nil {
 			return nil, errors.ToRosetta(err)
 		}
-		height = block.Block.Index
 	case request.BlockIdentifier.Index != nil:
 		height = *request.BlockIdentifier.Index
 		block, err = on.client.BlockByHeight(ctx, &height)
@@ -39,6 +39,7 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 		}
 	}
 
+	height = block.Block.Index
 	accountCoins, err := on.client.Balances(ctx, request.AccountIdentifier.Address, &height)
 	if err != nil {
 		return nil, errors.ToRosetta(err)
