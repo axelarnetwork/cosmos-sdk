@@ -364,6 +364,15 @@ func (c *Client) Status(ctx context.Context) (*rosettatypes.SyncStatus, error) {
 	return c.converter.ToRosetta().SyncStatus(status), err
 }
 
+func (c *Client) LastBlockHeight(ctx context.Context) (int64, error) {
+	result, err := c.tmRPC.ABCIInfo(ctx)
+	if err != nil {
+		return 0, crgerrs.WrapError(crgerrs.ErrUnknown, err.Error())
+	}
+
+	return result.Response.LastBlockHeight, err
+}
+
 func (c *Client) PostTx(txBytes []byte) (*rosettatypes.TransactionIdentifier, map[string]interface{}, error) {
 	// sync ensures it will go through checkTx
 	res, err := c.tmRPC.BroadcastTxSync(context.Background(), txBytes)

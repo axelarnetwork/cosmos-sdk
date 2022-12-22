@@ -60,6 +60,9 @@ type Client interface {
 	// Status returns the node status, such as sync data, version etc
 	Status(ctx context.Context) (*types.SyncStatus, error)
 
+	// LastBlockHeight returns last committed block height
+	LastBlockHeight(ctx context.Context) (int64, error)
+
 	// Construction API
 
 	// PostTx posts txBytes to the node and returns the transaction identifier plus metadata related
