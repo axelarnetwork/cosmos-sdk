@@ -609,14 +609,17 @@ func (c converter) HashToTxType(hashBytes []byte) (txType TransactionType, realH
 func (c converter) SyncStatus(status *tmcoretypes.ResultStatus) *rosettatypes.SyncStatus {
 	// determine sync status
 	stage := StatusPeerSynced
+	synced := true
 	if status.SyncInfo.CatchingUp {
 		stage = StatusPeerSyncing
+		synced = false
 	}
 
 	return &rosettatypes.SyncStatus{
 		CurrentIndex: &status.SyncInfo.LatestBlockHeight,
 		TargetIndex:  nil, // sync info does not allow us to get target height
 		Stage:        &stage,
+		Synced:       &synced,
 	}
 }
 

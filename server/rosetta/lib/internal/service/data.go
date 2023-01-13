@@ -177,17 +177,25 @@ func (on OnlineNetwork) NetworkOptions(_ context.Context, _ *types.NetworkReques
 }
 
 func (on OnlineNetwork) NetworkStatus(ctx context.Context, _ *types.NetworkRequest) (*types.NetworkStatusResponse, *types.Error) {
-	block, err := on.client.BlockByHeight(ctx, nil)
-	if err != nil {
-		return nil, errors.ToRosetta(err)
-	}
-
 	peers, err := on.client.Peers(ctx)
 	if err != nil {
 		return nil, errors.ToRosetta(err)
 	}
 
 	syncStatus, err := on.client.Status(ctx)
+	if err != nil {
+		return nil, errors.ToRosetta(err)
+	}
+
+	lastBlockHeight := *syncStatus.CurrentIndex
+	if *syncStatus.Synced {
+		lastBlockHeight, err = on.client.LastBlockHeight(ctx)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+	}
+
+	block, err := on.client.BlockByHeight(ctx, &lastBlockHeight)
 	if err != nil {
 		return nil, errors.ToRosetta(err)
 	}
