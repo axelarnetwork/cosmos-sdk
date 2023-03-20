@@ -166,12 +166,7 @@ func (c *Client) Balances(ctx context.Context, addr string, height *int64) ([]*r
 		return nil, crgerrs.FromGRPCToRosettaError(err)
 	}
 
-	availableCoins, err := c.coins(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.converter.ToRosetta().Amounts(balance.Balances, availableCoins), nil
+	return c.converter.ToRosetta().Amounts(balance.Balances), nil
 }
 
 func (c *Client) BlockByHash(ctx context.Context, hash string) (crgtypes.BlockResponse, error) {

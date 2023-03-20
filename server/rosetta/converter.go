@@ -62,7 +62,7 @@ type ToRosettaConverter interface {
 	// EndBlockTxHash converts the given endblock hash to rosetta transaction hash
 	EndBlockTxHash(blockHash []byte) string
 	// Amounts converts sdk.Coins to rosetta.Amounts
-	Amounts(ownedCoins []sdk.Coin, availableCoins sdk.Coins) []*rosettatypes.Amount
+	Amounts(ownedCoins []sdk.Coin) []*rosettatypes.Amount
 	// Ops converts an sdk.Msg to rosetta operations
 	Ops(status string, msg sdk.Msg) ([]*rosettatypes.Operation, error)
 	// OpsAndSigners takes raw transaction bytes and returns rosetta operations and the expected signers
@@ -494,31 +494,13 @@ func replaceWithFeeOp(feeEvent abci.Event, events []abci.Event) []abci.Event {
 }
 
 // Amounts converts []sdk.Coin to rosetta amounts
-func (c converter) Amounts(ownedCoins []sdk.Coin, availableCoins sdk.Coins) []*rosettatypes.Amount {
-	amounts := make([]*rosettatypes.Amount, len(availableCoins))
-	ownedCoinsMap := make(map[string]sdk.Int, len(availableCoins))
-
-	for _, ownedCoin := range ownedCoins {
-		ownedCoinsMap[ownedCoin.Denom] = ownedCoin.Amount
-	}
-
-	for i, coin := range availableCoins {
-		value, owned := ownedCoinsMap[coin.Denom]
-
-		if !owned {
-			amounts[i] = &rosettatypes.Amount{
-				Value:    sdk.NewInt(0).String(),
-				Currency: c.toCurrency(coin.GetDenom()),
-			}
-			continue
-		}
-		amounts[i] = &rosettatypes.Amount{
-			Value:    value.String(),
+func (c converter) Amounts(ownedCoins []sdk.Coin) []*rosettatypes.Amount {
+	return util.Map(ownedCoins, func(coin sdk.Coin) *rosettatypes.Amount {
+		return &rosettatypes.Amount{
+			Value:    coin.Amount.String(),
 			Currency: c.toCurrency(coin.GetDenom()),
 		}
-	}
-
-	return amounts
+	})
 }
 
 func (c converter) toCurrency(denom string) *rosettatypes.Currency {
