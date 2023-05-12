@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 
 	crgtypes "github.com/cosmos/cosmos-sdk/server/rosetta/lib/types"
+	"github.com/tendermint/tendermint/crypto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/tendermint/tendermint/crypto"
+	distr "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // statuses
@@ -54,7 +57,28 @@ const (
 	MsgSendOperation  = "/cosmos.bank.v1beta1.MsgSend"
 )
 
-var FeeCollector = sdk.AccAddress(crypto.AddressHash([]byte(auth.FeeCollectorName)))
+// StakingOperations maps staking related operations proto name to op name
+var StakingOperations = []string{
+	"/cosmos.staking.v1beta1.MsgDelegate",
+	"/cosmos.staking.v1beta1.MsgUndelegate",
+	"/cosmos.staking.v1beta1.MsgBeginDelegate",
+	"/cosmos.staking.v1beta1.MsgBeginRedelegate",
+	"/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
+	"/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission",
+	distr.EventTypeWithdrawRewards,
+	distr.EventTypeWithdrawCommission,
+	staking.EventTypeDelegate,
+	staking.EventTypeUnbond,
+	staking.EventTypeRedelegate,
+}
+
+var (
+	FeeCollector   = sdk.AccAddress(crypto.AddressHash([]byte(auth.FeeCollectorName)))
+	Distributor    = sdk.AccAddress(crypto.AddressHash([]byte(distr.ModuleName)))
+	StakingAccount = sdk.AccAddress(crypto.AddressHash([]byte(staking.ModuleName)))
+	BondedPool     = sdk.AccAddress(crypto.AddressHash([]byte(staking.BondedPoolName)))
+	NotBondedPool  = sdk.AccAddress(crypto.AddressHash([]byte(staking.NotBondedPoolName)))
+)
 
 // ConstructionPreprocessMetadata is used to represent
 // the metadata rosetta can provide during preprocess options
