@@ -301,33 +301,35 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 		}
 	}
 
-	// get balance changing operations from msgs
-	msgs := util.Filter(tx.GetMsgs(), func(m sdk.Msg) bool { return MsgSendOperation == sdk.MsgTypeURL(m) })
-	var rawTxOps []*rosettatypes.Operation
+	// get tx logs
+	logs, err := sdk.ParseABCILogs(txResult.Log)
+	if err != nil {
+		logs = sdk.ABCIMessageLogs{}
+	}
 
-	for _, msg := range msgs {
-		ops, err := c.Ops(status, msg)
+	var totalOps []*rosettatypes.Operation
+
+	for idx, msg := range tx.GetMsgs() {
+		var events sdk.StringEvents
+		// no logs for failed txs
+		if status == StatusTxSuccess {
+			events = logs[idx].Events
+		}
+
+		ops, err := c.ProcessMessage(msg, events, status)
 		if err != nil {
 			return nil, err
 		}
 
-		rawTxOps = append(rawTxOps, ops...)
+		totalOps = append(totalOps, ops...)
 	}
 
-	rawTxOps = util.Map(rawTxOps, func(op *rosettatypes.Operation) *rosettatypes.Operation {
-		op.Type = TransferOperation
-		return op
-	})
-
-	// now get balance events from response deliver tx
-	var balanceOps []*rosettatypes.Operation
 	// tx result might be nil, in case we're querying an unconfirmed tx from the mempool
 	if txResult != nil {
-		balanceOps = c.BalanceOps(StatusTxSuccess, txResult.Events) // force set to success because no events for failed tx
+		// now get balance events from response deliver tx
+		feeOps := c.getFeeOps(txResult.Events)
+		totalOps = append(totalOps, feeOps...)
 	}
-
-	// now normalize indexes
-	totalOps := AddOperationIndexes(rawTxOps, balanceOps)
 
 	// get memo
 	memoTx, ok := tx.(sdk.TxWithMemo)
@@ -347,7 +349,7 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 
 	return &rosettatypes.Transaction{
 		TransactionIdentifier: &rosettatypes.TransactionIdentifier{Hash: fmt.Sprintf("%X", rawTx.Hash())},
-		Operations:            totalOps,
+		Operations:            addOperationIndexes(totalOps),
 		Metadata:              metadata,
 	}, nil
 }
@@ -477,7 +479,7 @@ func replaceWithFeeOp(feeEvent abci.Event, events []abci.Event) []abci.Event {
 		},
 	)
 
-	receivedFeeFiter := util.And(
+	receivedFeeFilter := util.And(
 		func(e abci.Event) bool { return e.Type == banktypes.EventTypeCoinReceived },
 		func(e abci.Event) bool {
 			return FeeCollector.Equals(sdk.MustAccAddressFromBech32((string)(e.Attributes[0].Value)))
@@ -485,7 +487,7 @@ func replaceWithFeeOp(feeEvent abci.Event, events []abci.Event) []abci.Event {
 	)
 
 	sentFeeIdx := util.FilterIndex(events, sentFeeFilter)[0]
-	receivedFeeIdx := util.FilterIndex(events, receivedFeeFiter)[0]
+	receivedFeeIdx := util.FilterIndex(events, receivedFeeFilter)[0]
 
 	events[sentFeeIdx].Type = FeePayerOperation
 	events[receivedFeeIdx].Type = FeeReceiverOperation

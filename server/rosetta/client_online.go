@@ -73,7 +73,9 @@ func NewClient(cfg *Config) (*Client, error) {
 		FeePayerOperation,
 		FeeReceiverOperation,
 		TransferOperation,
+		MsgSendOperation,
 	}
+	supportedOperations = append(supportedOperations, StakingOperations...)
 
 	return &Client{
 		supportedOperations: supportedOperations,
