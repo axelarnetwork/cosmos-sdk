@@ -2,6 +2,9 @@ package types
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/coinbase/rosetta-sdk-go/server"
 	"github.com/coinbase/rosetta-sdk-go/types"
@@ -59,9 +62,14 @@ type Client interface {
 	Peers(ctx context.Context) ([]*types.Peer, error)
 	// Status returns the node status, such as sync data, version etc
 	Status(ctx context.Context) (*types.SyncStatus, error)
-
 	// LastBlockHeight returns last committed block height
 	LastBlockHeight(ctx context.Context) (int64, error)
+	// Rewards fetches the pending rewards of the given delegator address
+	Rewards(ctx context.Context, delegator string, validator string, height *int64) ([]*types.Amount, error)
+	// UnbondingDelegations fetches the unbonging delegations of the given delegator address
+	UnbondingDelegations(ctx context.Context, delegator string, height *int64) ([]*types.Amount, error)
+	// Delegations fetches the delegations of the given delegator address
+	Delegations(ctx context.Context, delegator string, height *int64) ([]*types.Amount, error)
 
 	// Construction API
 
@@ -172,4 +180,62 @@ type ConstructionOfflineAPI interface {
 type SignerData struct {
 	AccountNumber uint64 `json:"account_number"`
 	Sequence      uint64 `json:"sequence"`
+}
+
+// BalanceType used to query different account balance
+type BalanceType int
+
+const (
+	Unrecognized BalanceType = iota
+	AvailableBalance
+	PendingRewards
+	UnbondingBalance
+	DelegatedBalance
+)
+
+func (i BalanceType) String() string {
+	switch i {
+	case AvailableBalance:
+		return "available_balance"
+	case PendingRewards:
+		return "pending_rewards"
+	case UnbondingBalance:
+		return "unbonding_balance"
+	case DelegatedBalance:
+		return "delegated_balance"
+	default:
+		return "unrecognized_balance_type"
+	}
+}
+
+func ParseBalanceType(s string) (BalanceType, error) {
+	switch strings.ToLower(s) {
+	case strings.ToLower(AvailableBalance.String()):
+		return AvailableBalance, nil
+	case strings.ToLower(PendingRewards.String()):
+		return PendingRewards, nil
+	case strings.ToLower(UnbondingBalance.String()):
+		return UnbondingBalance, nil
+	case strings.ToLower(DelegatedBalance.String()):
+		return DelegatedBalance, nil
+	default:
+		return -1, fmt.Errorf("unrecognized balance type option")
+	}
+}
+
+// UnbondingDelegationMetaData attaches the validator address and completion time to the unbonding delegation
+func UnbondingDelegationMetaData(validator string, completionTime time.Time) map[string]interface{} {
+	return map[string]interface{}{
+		"balance_type":      UnbondingBalance.String(),
+		"completion_time":   completionTime.String(),
+		"validator_address": validator,
+	}
+}
+
+// BalanceMetaData attaches the validator address to balance response
+func BalanceMetaData(balanceType BalanceType, validator string) map[string]interface{} {
+	return map[string]interface{}{
+		"balance_type":      balanceType.String(),
+		"validator_address": validator,
+	}
 }
