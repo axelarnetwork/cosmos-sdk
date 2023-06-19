@@ -40,8 +40,49 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 	}
 
 	height = block.Block.Index
-	accountCoins, err := on.client.Balances(ctx, request.AccountIdentifier.Address, &height)
-	if err != nil {
+
+	balanceType := crgtypes.AvailableBalance
+	var validatorAddress string
+	if request.AccountIdentifier.SubAccount != nil {
+		subAccount := request.AccountIdentifier.SubAccount
+		balanceType, err = crgtypes.ParseBalanceType(subAccount.Address)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+
+		metaData := new(SubAccountMetaData)
+		err = metaData.FromMetadata(subAccount.Metadata)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+
+		validatorAddress = metaData.ValidatorAddress
+	}
+
+	var accountCoins []*types.Amount
+	switch balanceType {
+	case crgtypes.AvailableBalance:
+		accountCoins, err = on.client.Balances(ctx, request.AccountIdentifier.Address, &height)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+	case crgtypes.PendingRewards:
+		accountCoins, err = on.client.Rewards(ctx, request.AccountIdentifier.Address, validatorAddress, &height)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+	case crgtypes.UnbondingBalance:
+		accountCoins, err = on.client.UnbondingDelegations(ctx, request.AccountIdentifier.Address, &height)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+	case crgtypes.DelegatedBalance:
+		accountCoins, err = on.client.Delegations(ctx, request.AccountIdentifier.Address, &height)
+		if err != nil {
+			return nil, errors.ToRosetta(err)
+		}
+	default:
+		err = errors.WrapError(errors.ErrBadArgument, "unrecognized balance type")
 		return nil, errors.ToRosetta(err)
 	}
 
