@@ -493,7 +493,7 @@ func (c *Client) blockTxs(ctx context.Context, height *int64) (crgtypes.BlockTra
 		TransactionIdentifier: &rosettatypes.TransactionIdentifier{Hash: c.converter.ToRosetta().EndBlockTxHash(blockInfo.BlockID.Hash)},
 		Operations: AddOperationIndexes(
 			nil,
-			c.converter.ToRosetta().BalanceOps(StatusTxSuccess, blockResults.EndBlockEvents),
+			c.converter.ToRosetta().ProcessEndBlockerEvents(blockResults.EndBlockEvents),
 		),
 	}
 
