@@ -284,6 +284,7 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 	// the whole TX will be considered failing, so we can't have
 	// 1 msg being success and 1 msg being reverted
 	status := StatusTxSuccess
+	var logs sdk.ABCIMessageLogs
 	switch txResult {
 	// if nil, we're probably checking an unconfirmed tx
 	// or trying to build a new transaction, so status
@@ -292,15 +293,16 @@ func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rose
 		status = ""
 	// set the status
 	default:
-		if txResult.Code != abci.CodeTypeOK {
+		switch txResult.Code {
+		case abci.CodeTypeOK:
+			// parse tx logs
+			logs, err = sdk.ParseABCILogs(txResult.Log)
+			if err != nil {
+				return nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
+			}
+		default:
 			status = StatusTxReverted
 		}
-	}
-
-	// get tx logs
-	logs, err := sdk.ParseABCILogs(txResult.Log)
-	if err != nil {
-		logs = sdk.ABCIMessageLogs{}
 	}
 
 	var totalOps []*rosettatypes.Operation
