@@ -70,6 +70,7 @@ var StakingOperations = []string{
 	staking.EventTypeDelegate,
 	staking.EventTypeUnbond,
 	staking.EventTypeRedelegate,
+	staking.EventTypeCompleteUnbonding,
 }
 
 var (

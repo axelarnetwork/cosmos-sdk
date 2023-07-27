@@ -55,6 +55,50 @@ func (c converter) ProcessMessage(msg sdk.Msg, events sdk.StringEvents, status s
 	return append(txOps, ops...), err
 }
 
+func (c converter) ProcessEndBlockerEvents(events []abci.Event) []*types.Operation {
+	var ops []*types.Operation
+
+	// find complete unbonding events
+	completeUnbondingEvents := util.Filter(
+		events,
+		func(event abci.Event) bool {
+			return event.Type == staking.EventTypeCompleteUnbonding &&
+				len(event.Attributes) == 3 &&
+				string(event.Attributes[0].Key) == sdk.AttributeKeyAmount &&
+				string(event.Attributes[1].Key) == staking.AttributeKeyValidator &&
+				string(event.Attributes[2].Key) == staking.AttributeKeyDelegator
+		},
+	)
+
+	delegators := util.Map(completeUnbondingEvents, func(event abci.Event) string { return string(event.Attributes[2].Value) })
+
+	for _, e := range events {
+		balanceOps, ok := c.sdkEventToBalanceOperations(StatusTxSuccess, e)
+		if !ok {
+			continue
+		}
+
+		balanceOps = util.Map(balanceOps, func(op *types.Operation) *types.Operation {
+			if len(completeUnbondingEvents) == 0 {
+				return op
+			}
+
+			if op.Account.Address == NotBondedPool.String() {
+				op.Type = staking.EventTypeCompleteUnbonding
+			}
+
+			if util.Contains(delegators, op.Account.Address) {
+				op.Type = staking.EventTypeCompleteUnbonding
+			}
+
+			return op
+		})
+		ops = append(ops, balanceOps...)
+	}
+
+	return ops
+}
+
 func (c converter) processDelegate(msg sdk.Msg, events sdk.StringEvents) ([]*types.Operation, error) {
 	msgDelegate, ok := msg.(*staking.MsgDelegate)
 	if !ok {

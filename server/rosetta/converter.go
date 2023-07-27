@@ -83,6 +83,8 @@ type ToRosettaConverter interface {
 	SyncStatus(status *tmcoretypes.ResultStatus) *rosettatypes.SyncStatus
 	// Peers converts tendermint peers to rosetta
 	Peers(peers []tmcoretypes.Peer) []*rosettatypes.Peer
+	// ProcessEndBlockerEvents converts endblocker events to rosetta operations
+	ProcessEndBlockerEvents(events []abci.Event) []*rosettatypes.Operation
 }
 
 // ToSDKConverter is an interface that exposes
