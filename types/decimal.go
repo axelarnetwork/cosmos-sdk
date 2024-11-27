@@ -282,7 +282,7 @@ func (d Dec) MulTruncate(d2 Dec) Dec {
 	res := Dec{chopped}
 	res.assertInValidRange()
 
-	return Dec{chopped}
+	return res
 }
 
 // multiplication
