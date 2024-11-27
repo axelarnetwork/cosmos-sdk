@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/yaml.v2"
 
@@ -71,6 +73,7 @@ func (s *decimalTestSuite) TestNewDecFromStr() {
 		{"8888888888888888888888888888888888888888888888888888888888888888888844444440", false, sdk.NewDecFromBigInt(largerBigInt)},
 		{"33499189745056880149688856635597007162669032647290798121690100488888732861290.034376435130433535", false, sdk.NewDecFromBigIntWithPrec(largestBigInt, 18)},
 		{"133499189745056880149688856635597007162669032647290798121690100488888732861291", true, sdk.Dec{}},
+		{"115792089237316195423570985008687907853269984665640564039457584007913129639936", true, sdk.Dec{}}, // 2^256
 	}
 
 	for tcIndex, tc := range tests {
@@ -366,6 +369,15 @@ func (s *decimalTestSuite) TestDecCeil() {
 	}
 }
 
+func (s *decimalTestSuite) TestCeilOverflow() {
+	// (2^256 * 10^18 -1) / 10^18
+	d, err := sdk.NewDecFromStr("115792089237316195423570985008687907853269984665640564039457584007913129639935.999999999999999999")
+	s.Require().NoError(err)
+	s.Require().True(d.IsInValidRange())
+	// this call panics because the value is too large
+	s.Require().Panics(func() { d.Ceil() }, "Ceil should panic on overflow")
+}
+
 func (s *decimalTestSuite) TestPower() {
 	testCases := []struct {
 		input    sdk.Dec
@@ -392,6 +404,9 @@ func (s *decimalTestSuite) TestApproxRoot() {
 		root     uint64
 		expected sdk.Dec
 	}{
+		{sdk.NewDecFromInt(sdk.NewInt(2)), 0, sdk.OneDec()},                                    // 2 ^ 0 => 1.0
+		{sdk.NewDecWithPrec(4, 2), 0, sdk.OneDec()},                                            // 0.04 ^ 0 => 1.0
+		{sdk.NewDec(0), 1, sdk.NewDec(0)},                                                      // 0 ^ 1 => 0
 		{sdk.OneDec(), 10, sdk.OneDec()},                                                       // 1.0 ^ (0.1) => 1.0
 		{sdk.NewDecWithPrec(25, 2), 2, sdk.NewDecWithPrec(5, 1)},                               // 0.25 ^ (0.5) => 0.5
 		{sdk.NewDecWithPrec(4, 2), 2, sdk.NewDecWithPrec(2, 1)},                                // 0.04 ^ (0.5) => 0.2
@@ -585,5 +600,258 @@ func BenchmarkMarshalTo(b *testing.B) {
 				}
 			}
 		}
+	}
+}
+
+// 2^256 * 10^18 -1
+const maxValidDecNumber = "115792089237316195423570985008687907853269984665640564039457584007913129639935999999999999999999"
+
+func TestDecOpsWithinLimits(t *testing.T) {
+	maxValid, ok := new(big.Int).SetString(maxValidDecNumber, 10)
+	require.True(t, ok)
+	minValid := new(big.Int).Neg(maxValid)
+	specs := map[string]struct {
+		src    *big.Int
+		expErr bool
+	}{
+		"max": {
+			src: maxValid,
+		},
+		"max + 1": {
+			src:    new(big.Int).Add(maxValid, big.NewInt(1)),
+			expErr: true,
+		},
+		"min": {
+			src: minValid,
+		},
+		"min - 1": {
+			src:    new(big.Int).Sub(minValid, big.NewInt(1)),
+			expErr: true,
+		},
+		"max Int": {
+			// max Int is 2^256 -1
+			src: sdk.NewIntFromBigInt(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), big.NewInt(1))).BigInt(),
+		},
+		"min Int": {
+			// max Int is -1 *(2^256 -1)
+			src: sdk.NewIntFromBigInt(new(big.Int).Neg(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), big.NewInt(1)))).BigInt(),
+		},
+	}
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			src := sdk.NewDecFromBigIntWithPrec(spec.src, 18)
+
+			ops := map[string]struct {
+				fn func(src sdk.Dec) sdk.Dec
+			}{
+				"Add": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.Add(sdk.NewDec(0)) },
+				},
+				"Sub": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.Sub(sdk.NewDec(0)) },
+				},
+				"Mul": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.Mul(sdk.NewDec(1)) },
+				},
+				"MulTruncate": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.MulTruncate(sdk.NewDec(1)) },
+				},
+				"MulInt": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.MulInt(sdk.NewInt(1)) },
+				},
+				"MulInt64": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.MulInt64(1) },
+				},
+				"Quo": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.Quo(sdk.NewDec(1)) },
+				},
+				"QuoTruncate": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.QuoTruncate(sdk.NewDec(1)) },
+				},
+				"QuoRoundup": {
+					fn: func(src sdk.Dec) sdk.Dec { return src.QuoRoundUp(sdk.NewDec(1)) },
+				},
+			}
+			for name, op := range ops {
+				t.Run(name, func(t *testing.T) {
+					if spec.expErr {
+						assert.Panics(t, func() {
+							got := op.fn(src)
+							t.Log(got.String())
+						})
+						return
+					}
+					exp := src.String()
+					// exp no panics
+					got := op.fn(src)
+					assert.Equal(t, exp, got.String())
+				})
+			}
+		})
+	}
+}
+
+func TestDecCeilLimits(t *testing.T) {
+	maxValid, ok := new(big.Int).SetString(maxValidDecNumber, 10)
+	require.True(t, ok)
+	minValid := new(big.Int).Neg(maxValid)
+
+	specs := map[string]struct {
+		src    *big.Int
+		exp    string
+		expErr bool
+	}{
+		"max": {
+			src:    maxValid,
+			expErr: true,
+		},
+		"max + 1": {
+			src:    new(big.Int).Add(maxValid, big.NewInt(1)),
+			expErr: true,
+		},
+		"max - 1e18, previous full number": {
+			src: new(big.Int).Sub(maxValid, new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),
+			exp: "115792089237316195423570985008687907853269984665640564039457584007913129639935.000000000000000000",
+		},
+		"min": {
+			src: minValid,
+			exp: "-115792089237316195423570985008687907853269984665640564039457584007913129639935.000000000000000000",
+		},
+		"min - 1": {
+			src:    new(big.Int).Sub(minValid, big.NewInt(1)),
+			expErr: true,
+		},
+	}
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			src := sdk.NewDecFromBigIntWithPrec(spec.src, 18)
+			if spec.expErr {
+				assert.Panics(t, func() {
+					got := src.Ceil()
+					t.Log(got.String())
+				})
+				return
+			}
+			got := src.Ceil()
+			assert.Equal(t, spec.exp, got.String())
+		})
+	}
+}
+
+func TestTruncateIntLimits(t *testing.T) {
+	maxValid, ok := new(big.Int).SetString(maxValidDecNumber, 10)
+	require.True(t, ok)
+	minValid := new(big.Int).Neg(maxValid)
+
+	specs := map[string]struct {
+		src    *big.Int
+		exp    string
+		expErr bool
+	}{
+		"max": {
+			src: maxValid,
+			exp: "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+		},
+		"max + 1": {
+			src:    new(big.Int).Add(maxValid, big.NewInt(1)),
+			expErr: true,
+		},
+		"min": {
+			src: minValid,
+			exp: "-115792089237316195423570985008687907853269984665640564039457584007913129639935",
+		},
+		"min - 1": {
+			src:    new(big.Int).Sub(minValid, big.NewInt(1)),
+			expErr: true,
+		},
+	}
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			src := sdk.NewDecFromBigIntWithPrec(spec.src, 18)
+			if spec.expErr {
+				assert.Panics(t, func() {
+					got := src.TruncateInt()
+					t.Log(got.String())
+				})
+				return
+			}
+			got := src.TruncateInt()
+			assert.Equal(t, spec.exp, got.String())
+		})
+	}
+}
+
+func TestRoundIntLimits(t *testing.T) {
+	maxValid, ok := new(big.Int).SetString(maxValidDecNumber, 10)
+	require.True(t, ok)
+	minValid := new(big.Int).Neg(maxValid)
+	oneE18 := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+
+	specs := map[string]struct {
+		src    *big.Int
+		exp    string
+		expErr bool
+	}{
+		"max -1e18; previous full number": {
+			src: new(big.Int).Sub(maxValid, oneE18),
+			exp: "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+		},
+		"max": {
+			src:    maxValid,
+			expErr: true,
+		},
+		"max + 1": {
+			src:    new(big.Int).Add(maxValid, big.NewInt(1)),
+			expErr: true,
+		},
+		"min + 1e18; previous full number": {
+			src: new(big.Int).Add(minValid, oneE18),
+			exp: "-115792089237316195423570985008687907853269984665640564039457584007913129639935",
+		},
+		"min": {
+			src:    minValid,
+			expErr: true,
+		},
+		"min - 1": {
+			src:    new(big.Int).Sub(minValid, big.NewInt(1)),
+			expErr: true,
+		},
+	}
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			src := sdk.NewDecFromBigIntWithPrec(spec.src, 18)
+			t.Log(src.String())
+			if spec.expErr {
+				assert.Panics(t, func() {
+					got := src.RoundInt()
+					t.Log(got.String())
+				})
+				return
+			}
+			got := src.RoundInt()
+			assert.Equal(t, spec.exp, got.String())
+		})
+	}
+}
+
+func BenchmarkIsInValidRange(b *testing.B) {
+	maxValid, ok := new(big.Int).SetString(maxValidDecNumber, 10)
+	require.True(b, ok)
+	souceMax := sdk.NewDecFromBigIntWithPrec(maxValid, 18)
+	b.ResetTimer()
+	specs := map[string]sdk.Dec{
+		"max":         souceMax,
+		"greater max": sdk.NewDecFromBigIntWithPrec(maxValid, 16),
+		"min":         souceMax.Neg(),
+		"lower min":   sdk.NewDecFromBigIntWithPrec(new(big.Int).Neg(maxValid), 16),
+		"zero":        sdk.ZeroDec(),
+		"one":         sdk.OneDec(),
+	}
+	for name, source := range specs {
+		b.Run(name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = source.IsInValidRange()
+			}
+		})
 	}
 }
