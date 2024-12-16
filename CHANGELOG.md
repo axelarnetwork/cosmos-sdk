@@ -40,6 +40,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ### Features
 
 * (rosetta) [\#11609](https://github.com/cosmos/cosmos-sdk/pull/11609) Add fee suggestion for rosetta and enable offline mode. Also force set events about Fees to Success to pass reconciliation test.
+* Fix [ABS-0043/ABS-0044](https://github.com/cosmos/cosmos-sdk/security/advisories/GHSA-8wcc-m6j2-qxvm) Limit recursion depth for unknown field detection and unpack any
 
 ## v0.45.9 - 2022-10-14
 
