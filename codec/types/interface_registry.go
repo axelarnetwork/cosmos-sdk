@@ -14,7 +14,7 @@ var (
 
 	// MaxUnpackAnySubCalls extension point that defines the maximum number of sub-calls allowed during the unpacking
 	// process of protobuf Any messages.
-	MaxUnpackAnySubCalls = 100
+	MaxUnpackAnySubCalls = 500
 
 	// MaxUnpackAnyRecursionDepth extension point that defines the maximum allowed recursion depth during protobuf Any
 	// message unpacking.
