@@ -3,7 +3,6 @@ package keeper
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -68,22 +67,6 @@ func (k Keeper) SubmitProposal(ctx context.Context, messages []sdk.Msg, metadata
 		if handler == nil {
 			return v1.Proposal{}, errorsmod.Wrap(types.ErrUnroutableProposalMsg, sdk.MsgTypeURL(msg))
 		}
-
-		// Only if it's a MsgExecLegacyContent do we try to execute the
-		// proposal in a cached context.
-		// For other Msgs, we do not verify the proposal messages any further.
-		// They may fail upon execution.
-		// ref: https://github.com/cosmos/cosmos-sdk/pull/10868#discussion_r784872842
-		if msg, ok := msg.(*v1.MsgExecLegacyContent); ok {
-			cacheCtx, _ := sdkCtx.CacheContext()
-			if _, err := handler(cacheCtx, msg); err != nil {
-				if errors.Is(err, types.ErrNoProposalHandlerExists) {
-					return v1.Proposal{}, err
-				}
-				return v1.Proposal{}, errorsmod.Wrap(types.ErrInvalidProposalContent, err.Error())
-			}
-		}
-
 	}
 
 	proposalID, err := k.ProposalID.Next(ctx)
